@@ -16,7 +16,7 @@ static BLEUUID iBBQTempCharacteristicUUID("0000fff4-0000-1000-8000-00805f9b34fb"
 static BLEUUID iBBQCmdCharacteristicUUID("0000fff5-0000-1000-8000-00805f9b34fb");
 static std::string iBBQName = "iBBQ";
 static uint8_t pairKeyByte[] = {
-  0x22,
+  0x21,
   0x07,
   0x06,
   0x05,
@@ -32,17 +32,18 @@ static uint8_t pairKeyByte[] = {
   0x00,
   0x00
 };
-static std::string pairKey(reinterpret_cast<char*>(pairKeyByte),sizeof(pairKeyByte));
+static uint8_t setUnitsFKey[] = {0x02,0x01,0x00,0x00,0x00,0x00};
+static uint8_t startCmdByte[] = {0x0B,0x01,0x00,0x00,0x00,0x00};
 
-static uint8_t startCmdByte[] = {0x11,0x01,0x00,0x00,0x00,0x00};
-static std::string iBBQStartCmd(reinterpret_cast<char*>(startCmdByte),sizeof(startCmdByte));
-
+static int cToF(int fTemp)
+{
+  return (fTemp* 9 / 5 + 32);
+}
 
 static void tempNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* data, size_t length, bool isNotify)
 {
   Serial.println("Data Notification Received");
-  // std::string stringData((char*)data,length);
-  // Serial.println(stringData.c_str());
+  Serial.println(cToF(data[0]/10));
 }
 
 static void connectToDevice(BLEAddress deviceAddress)
@@ -59,16 +60,15 @@ static void connectToDevice(BLEAddress deviceAddress)
     if (piBBQPairCharacteristic != nullptr)
     {
       Serial.println("Found Pair Characteristic");
-      // piBBQPairCharacteristic->writeValue("2107060504030201b8220000000000");
       piBBQPairCharacteristic->writeValue(pairKeyByte,sizeof(pairKeyByte));
-      // piBBQPairCharacteristic->writeValue(pairKey);
       Serial.println("Wrote Pair Key");
-      Serial.println(pairKey.c_str());
       piBBQTempCharacteristic = piBBQPrimaryService->getCharacteristic(iBBQTempCharacteristicUUID);
       piBBQCmdCharacteristic = piBBQPrimaryService->getCharacteristic(iBBQCmdCharacteristicUUID);
       if (piBBQTempCharacteristic != nullptr && piBBQCmdCharacteristic != nullptr)
       {
-        Serial.println("Found Temp Characteristic");
+        Serial.println("Found Temp and Cmd Characteristics");
+        piBBQCmdCharacteristic->writeValue(setUnitsFKey, sizeof(setUnitsFKey));  
+        Serial.println("Set Units to F");
         piBBQTempCharacteristic->registerForNotify(tempNotifyCallback);
         Serial.println("Registered notification callback");
         piBBQCmdCharacteristic->writeValue(startCmdByte,sizeof(startCmdByte));
